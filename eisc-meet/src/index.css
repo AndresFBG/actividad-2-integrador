@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+
+@theme {
+  --font-poppins: Poppins, sans-serif;
+}
+
+body {
+  @apply font-poppins;
+}
+
+.container-page > div:not(:has(form)) {
+  @apply h-lvh flex flex-col gap-4 justify-center items-center;
+}
+
+a {
+  @apply text-white hover:underline text-lg;
+}
+
+nav {
+  @apply fixed w-full;
+}
+
+nav,
+footer {
+  @apply flex gap-8 bg-purple-900 justify-center p-4 text-lg;
+}
+
+button {
+  @apply bg-purple-700 text-white py-2 p-2 rounded hover:bg-purple-800 w-48 text-lg cursor-pointer;
+}
+
+h1 {
+  @apply text-3xl font-bold text-center mb-12;
+  @apply bg-gradient-to-r from-violet-600 to-purple-600;
+  @apply bg-clip-text text-transparent;
+}
+
+h2 {
+  @apply text-2xl font-bold text-center mb-12;
+  @apply bg-gradient-to-r from-violet-300 to-purple-300;
+  @apply bg-clip-text text-transparent;
+}
+
+.container-page {
+  @apply min-h-screen flex items-center justify-center p-4;
+  @apply bg-gradient-to-br from-violet-50 to-purple-50 dark:from-gray-900 dark:to-gray-800;
+}
+
+.container-page > div {
+  @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg;
+  @apply p-8 border border-gray-200 dark:border-gray-700;
+  @apply w-full max-w-md;
+  @apply transition-all duration-200 hover:shadow-xl;
+}
+
+.container-page label {
+  @apply block text-sm font-medium text-gray-700 dark:text-gray-300;
+}
+
+.container-page > div > div:last-child > button {
+  @apply w-full mt-1 flex items-center justify-center gap-3;
+  @apply bg-violet-600 hover:bg-violet-700 active:bg-violet-800;
+  @apply text-white shadow-lg hover:shadow-xl;
+  @apply transition-all duration-200 ease-in-out;
+  @apply transform hover:scale-105 active:scale-95;
+  @apply focus:outline-none focus:ring-4 focus:ring-violet-300 focus:ring-offset-2;
+}
+
+.container-page > div > div:last-child > button img {
+  @apply w-6 h-6;
+}
+
