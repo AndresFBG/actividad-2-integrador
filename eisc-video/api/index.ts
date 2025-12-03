@@ -17,18 +17,13 @@ const port = Number(process.env.PORT);
 io.listen(port);
 console.log(`Server is running on port ${port}`);
 
-// Estructura:
-// rooms: { roomId: { socketId: { socketId, userId, displayName, photoURL?: string } } }
-// mediaStates: { roomId: { socketId: { audioEnabled: boolean; videoEnabled: boolean } } }
 const rooms: Record<string, Record<string, { socketId: string; userId: string; displayName: string; photoURL?: string }>> = {};
-const mediaStates: Record<string, Record<string, { audioEnabled: boolean; videoEnabled: boolean }>> = {};
+const mediaStates: Record<string, Record<string, { audioEnabled: boolean; videoEnabled: boolean; isScreenSharing?: boolean }>> = {};
 
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.id}`);
 
-  // Usuario se une a una sala
   socket.on("join:room", (roomId: string, userId: string, displayName: string, photoURL?: string) => {
-    // Limitar salas a máximo 10 usuarios (voz/video)
     const currentCount = rooms[roomId] ? Object.keys(rooms[roomId]).length : 0;
     if (currentCount >= 10) {
       socket.emit("room:full");
@@ -37,7 +32,6 @@ io.on("connection", (socket) => {
 
     socket.join(roomId);
 
-    // Inicializar sala si no existe
     if (!rooms[roomId]) {
       rooms[roomId] = {};
     }
@@ -45,17 +39,14 @@ io.on("connection", (socket) => {
       mediaStates[roomId] = {};
     }
 
-    // Agregar usuario a la sala
     rooms[roomId][socket.id] = { socketId: socket.id, userId, displayName, photoURL };
-    mediaStates[roomId][socket.id] = { audioEnabled: true, videoEnabled: true };
+    mediaStates[roomId][socket.id] = { audioEnabled: true, videoEnabled: true, isScreenSharing: false };
 
-    // Notificar a los usuarios existentes sobre el nuevo usuario
     const existingUsers = Object.entries(rooms[roomId])
       .filter(([id]) => id !== socket.id)
       .map(([id, info]) => ({ socketId: id, userId: info.userId, displayName: info.displayName, photoURL: info.photoURL }));
     
     socket.emit("room:joined", { roomId, existingUsers });
-    // Enviar estados de medios actuales a quien se une
     socket.emit("media:states", mediaStates[roomId]);
 
     socket.to(roomId).emit("user:joined", { socketId: socket.id, userId, displayName, photoURL });
@@ -63,13 +54,11 @@ io.on("connection", (socket) => {
     console.log(`User ${socket.id} joined room ${roomId}. Total users: ${Object.keys(rooms[roomId]).length}`);
   });
 
-    // Señalización WebRTC
   socket.on("signal", (data: { to: string; from: string; signal: any; roomId: string }) => {
     const { to, from, signal, roomId } = data;
     if (!signal || !to) return;
     const senderInfo = rooms[roomId]?.[from];
 
-    // Envía la señal solo al destinatario indicado
     io.to(to).emit("signal", {
       from,
       signal,
@@ -79,16 +68,16 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Actualización de estado de medios (mute/video)
   socket.on("media:state", (data: { roomId: string; audioEnabled?: boolean; videoEnabled?: boolean }) => {
     const { roomId, audioEnabled, videoEnabled } = data;
     if (!mediaStates[roomId]) {
       mediaStates[roomId] = {};
     }
-    const current = mediaStates[roomId][socket.id] || { audioEnabled: true, videoEnabled: true };
+    const current = mediaStates[roomId][socket.id] || { audioEnabled: true, videoEnabled: true, isScreenSharing: false };
     mediaStates[roomId][socket.id] = {
       audioEnabled: audioEnabled ?? current.audioEnabled,
       videoEnabled: videoEnabled ?? current.videoEnabled,
+      isScreenSharing: current.isScreenSharing ?? false,
     };
 
     socket.to(roomId).emit("media:state", {
@@ -98,7 +87,66 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Usuario sale de la sala
+  // EVENTO UNIFICADO PARA COMPARTIR PANTALLA
+  socket.on("screen:share", ({ roomId, sharing }: { roomId: string; sharing: boolean }) => {
+    console.log(`🖥️ Usuario ${socket.id} ${sharing ? 'comenzó' : 'detuvo'} compartir pantalla en sala ${roomId}`);
+    
+    // Actualizar el estado de compartir pantalla
+    if (mediaStates[roomId]?.[socket.id]) {
+      mediaStates[roomId][socket.id].isScreenSharing = sharing;
+    }
+
+    const senderInfo = rooms[roomId]?.[socket.id];
+    
+    // Notificar a todos los demás usuarios en la sala
+    socket.to(roomId).emit("screen:share", {
+      socketId: socket.id,
+      sharing,
+      displayName: senderInfo?.displayName,
+      photoURL: senderInfo?.photoURL,
+    });
+
+    console.log(`✅ Notificación de compartir pantalla enviada a sala ${roomId}`);
+  });
+
+  // Eventos legacy por compatibilidad (puedes eliminarlos si solo usas screen:share)
+  socket.on("screen:share-start", ({ roomId }) => {
+    console.log(`📺 Usuario ${socket.id} comenzó a compartir pantalla en sala ${roomId} (evento legacy)`);
+    
+    if (mediaStates[roomId]?.[socket.id]) {
+      mediaStates[roomId][socket.id].isScreenSharing = true;
+    }
+    
+    const senderInfo = rooms[roomId]?.[socket.id];
+    
+    socket.to(roomId).emit("peer:screen-share-start", {
+      socketId: socket.id,
+      displayName: senderInfo?.displayName,
+      photoURL: senderInfo?.photoURL,
+    });
+  });
+
+  socket.on("screen:share-stop", ({ roomId }) => {
+    console.log(`📺 Usuario ${socket.id} detuvo compartir pantalla en sala ${roomId} (evento legacy)`);
+    
+    if (mediaStates[roomId]?.[socket.id]) {
+      mediaStates[roomId][socket.id].isScreenSharing = false;
+    }
+    
+    socket.to(roomId).emit("peer:screen-share-stop", {
+      socketId: socket.id,
+    });
+  });
+
+  socket.on("screen:signal", ({ to, from, signal, roomId }) => {
+    console.log(`📤 Reenviando señal de pantalla de ${from} a ${to}`);
+    
+    io.to(to).emit("screen:signal", {
+      from,
+      signal,
+    });
+  });
+
   socket.on("leave:room", (roomId: string) => {
     if (rooms[roomId]?.[socket.id]) {
       delete rooms[roomId][socket.id];
@@ -106,7 +154,6 @@ io.on("connection", (socket) => {
       socket.to(roomId).emit("user:left", socket.id);
       socket.leave(roomId);
 
-      // Limpiar sala si está vacía
       if (Object.keys(rooms[roomId]).length === 0) {
         delete rooms[roomId];
         delete mediaStates[roomId];
@@ -116,7 +163,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Chat en tiempo real
   socket.on("chat:message", (data: { roomId: string; userId: string; message: string }) => {
     const { roomId, userId, message } = data;
 
@@ -130,18 +176,16 @@ io.on("connection", (socket) => {
     console.log(`Message in room ${roomId} from ${userId}: ${message}`);
   });
 
-  // Desconexión
   socket.on("disconnect", () => {
-    // Remover usuario de todas las salas
     for (const roomId in rooms) {
       if (rooms[roomId][socket.id]) {
         delete rooms[roomId][socket.id];
         delete mediaStates[roomId]?.[socket.id];
         socket.to(roomId).emit("user:left", socket.id);
 
-        // Limpiar sala si está vacía
         if (Object.keys(rooms[roomId]).length === 0) {
           delete rooms[roomId];
+          delete mediaStates[roomId];
         }
       }
     }

@@ -698,6 +698,82 @@
   }
 }
 
+/* eisc-meet/src/pages/ChatAndVideo.css */
+
+/* ... (estilos existentes) */
+
+/* ========================================
+   SCREEN SHARING STYLES
+   ======================================== */
+
+.screen-share-container {
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.screen-share-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.shared-screen-video {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Botón de screen share */
+.control-button.screen-button {
+  background: #8b5cf6;
+  color: white;
+}
+
+.control-button.screen-button:hover:not(:disabled) {
+  background: #7c3aed;
+  transform: translateY(-2px);
+}
+
+.control-button.screen-button.sharing {
+  background: #ef4444;
+  animation: pulse-share 2s infinite;
+}
+
+.control-button.screen-button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@keyframes pulse-share {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .shared-screen-video {
+    max-height: 50vh;
+  }
+  
+  .control-button.screen-button {
+    font-size: 12px;
+    padding: 10px 16px;
+  }
+}
 /* ========================================
    RESPONSIVE
    ======================================== */
